@@ -11,7 +11,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: Frontend
+        working-directory: frontend
     
     steps:
       - uses: actions/checkout@v4
@@ -20,5 +20,5 @@ jobs:
         with:
           node-version: 18
 
-      - run: npm CI
+      - run: npm ci
       - run: npm run build

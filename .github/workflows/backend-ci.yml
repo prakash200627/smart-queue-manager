@@ -5,13 +5,13 @@ on:
     branches: [main]
   pull_request:
 
-  jobs:
-    tests:
-      runs-on: ubuntu-latest
+jobs:
+  tests:
+    runs-on: ubuntu-latest
 
     defaults:
       run:
-        working-directory: Backend
+        working-directory: backend
     
     steps:
       - uses: actions/checkout@v4
@@ -19,11 +19,11 @@ on:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+        
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-      
+        
       - name: Run tests
         run: |
           pytest -v
