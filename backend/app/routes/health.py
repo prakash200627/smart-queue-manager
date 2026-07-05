@@ -2,6 +2,8 @@ from flask import Blueprint, jsonify
 from datetime import datetime
 from app.extensions import db, socketio
 from sqlalchemy.sql import text
+from app.monitoring import websocket_connections_gauge
+from app.monitoring import backend_health_gauge
 
 health_routes = Blueprint("health", __name__)
 
@@ -17,6 +19,14 @@ def home():
 @health_routes.route("/health", methods=["GET"])
 def health_check():
     db_status = "ok"
+
+    try:
+        db.session.execute(text("SELECT 1"))
+        backend_health_gauge.set(1)
+    except Exception:
+        db_status = "offline"
+        backend_health_gauge.set(0)
+        
     try:
         # Verify database is reachable
         db.session.execute(text("SELECT 1"))
@@ -48,7 +58,15 @@ def model_health():
 @health_routes.route("/health/ws", methods=["GET"])
 def ws_health():
     # socketio.server.eio.sockets is a dict of active connections in engineio
-    active_connections = len(socketio.server.eio.sockets) if socketio.server and hasattr(socketio.server, 'eio') else 0
+    active_connections = (
+        len(socketio.server.eio.sockets)
+        if socketio.server and hasattr(socketio.server, "eio")
+        else 0
+    )
+
+    websocket_connections_gauge.set(active_connections)
+
+    # if socketio.server and hasattr(socketio.server, 'eio') else 0
     return jsonify({
         "status": "ok",
         "active_connections": active_connections

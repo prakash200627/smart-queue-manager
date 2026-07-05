@@ -5,8 +5,13 @@ from app.extensions import db, socketio
 from app.models.token import Token
 from app.models.counter import Counter
 from app.services.ai_service import AiService
+from app.monitoring import queue_length_gauge
 
 logger = logging.getLogger("flask.app")
+
+def update_queue_length_metric():
+    waiting_count = Token.query.filter_by(status="waiting").count()
+    queue_length_gauge.set(waiting_count)
 
 def background_ai_update(queue_lengths, avg_times, service_type, service_duration, done_count):
     try:
@@ -67,6 +72,8 @@ class QueueService:
         
         db.session.add(token)
         db.session.commit()
+
+        update_queue_length_metric()
         
         service_code = AiService.encode_service_type(service_type)
         queue_length = Token.query.filter_by(counter_id=best_counter.id, status="waiting").count()
@@ -150,6 +157,8 @@ class QueueService:
         token.status = "serving"
         token.start_time = datetime.utcnow()
         db.session.commit()
+
+        update_queue_length_metric()
         
         socketio.emit("queue_update", {"message": "Service started"})
         
@@ -165,6 +174,8 @@ class QueueService:
         token.status = "done"
         token.end_time = datetime.utcnow()
         db.session.commit()
+
+        update_queue_length_metric()
         
         if not token.start_time:
             token.start_time = token.arrival_time

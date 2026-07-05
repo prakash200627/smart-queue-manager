@@ -10,9 +10,20 @@ from app.extensions import db, jwt, socketio, bcrypt, migrate, limiter
 from app.routes import auth_routes, counter_routes, queue_routes, health_routes
 from app.utils.logging import setup_logger
 
+from prometheus_flask_exporter import PrometheusMetrics
+from app.monitoring import init_monitoring
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
+
+    if app.config.get("ENV") != "testing":
+        metrics = PrometheusMetrics(app)
+        metrics.info(
+            "app_info",
+            "Smart Queue Manager",
+            version="1.0.0"
+        )
 
     # 1. Setup Structured JSON Logging
     setup_logger(app, app.config.get("LOG_LEVEL", "INFO"))
@@ -39,6 +50,10 @@ def create_app(config_class=Config):
     socketio.init_app(app, cors_allowed_origins=origins)
     bcrypt.init_app(app)
     limiter.init_app(app)
+
+    # Initialize Prometheus Metrics
+    if app.config.get("ENV") != "testing":
+        init_monitoring(app)
 
     # 4. Request Logging Middlewares
     @app.before_request
