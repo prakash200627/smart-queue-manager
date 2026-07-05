@@ -18,6 +18,8 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
 
     if app.config.get("ENV") != "testing":
+        import os
+        os.environ["DEBUG_METRICS"] = "1"
         metrics = PrometheusMetrics(app)
         metrics.info(
             "app_info",
