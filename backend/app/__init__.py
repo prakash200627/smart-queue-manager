@@ -8,6 +8,7 @@ from flask_limiter.errors import RateLimitExceeded
 
 from app.extensions import db, jwt, socketio, bcrypt, migrate, limiter
 from app.routes import auth_routes, counter_routes, queue_routes, health_routes
+from app import models
 from app.utils.logging import setup_logger
 
 from prometheus_flask_exporter import PrometheusMetrics
@@ -133,28 +134,12 @@ def create_app(config_class=Config):
     app.register_blueprint(counter_routes, url_prefix="/counter")
     app.register_blueprint(queue_routes, url_prefix="/queue")
 
-    # 8. Create Tables for Dev / Testing envs & Load ML Model
+    # 8. Database Initialization & Seeding
+    from app.database_initializer import initialize_database, seed_default_counters
+    initialize_database(app)
+    seed_default_counters(app)
+
     with app.app_context():
-        if app.config.get("ENV") == "development" or app.config.get("TESTING"):
-            db.create_all()
-            
-            # Auto-seed default counters in development mode if database is empty
-            from app.models.counter import Counter
-            try:
-                if Counter.query.count() == 0:
-                    default_counters = [
-                        Counter(name="Passport Counter 1", service_type="Passport", status="open"),
-                        Counter(name="License Counter 2", service_type="License", status="open"),
-                        Counter(name="Aadhaar Counter 3", service_type="Aadhaar", status="open")
-                    ]
-                    for c in default_counters:
-                        db.session.add(c)
-                    db.session.commit()
-                    app.logger.info("Auto-seeded default development counters")
-            except Exception as e:
-                db.session.rollback()
-                app.logger.warning(f"Could not auto-seed default counters: {e}")
-                
         # Pre-load the wait time prediction model at startup
         from app.ai.wait_predictor import load_model
         load_model()
